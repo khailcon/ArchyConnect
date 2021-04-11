@@ -22,6 +22,8 @@ from bokeh.events import ButtonClick  # for saving data
 from bokeh.models.widgets import DataTable, DateFormatter, TableColumn
 from bokeh.models import HoverTool
 from bokeh.plotting import figure
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
 
 def pca(data):
     """ generates a PCA object and the pca_data for graphing. 
@@ -121,8 +123,60 @@ def quick_scree(pca, style='bar', figsize=(25,10)):
     plt.xlabel('Principle Component')
     plt.title('Scree Plot')
     plt.show()
+
+def confidence_ellipse(x, y, ax, n_std=2.0, facecolor='none', **kwargs):
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
+
+    Parameters
+    ----------
+    x, y : array-like, shape (n, )
+        Input data.
+
+    ax : matplotlib.axes.Axes
+        The axes object to draw the ellipse into.
+
+    n_std : float
+        The number of standard deviations to determine the ellipse's radiuses.
+
+    **kwargs
+        Forwarded to `~matplotlib.patches.Ellipse`
+
+    Returns
+    -------
+    matplotlib.patches.Ellipse
+    """
+    if x.size != y.size:
+        raise ValueError("x and y must be the same size")
+
+    cov = np.cov(x, y)
+    pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
+    # Using a special case to obtain the eigenvalues of this
+    # two-dimensionl dataset.
+    ell_radius_x = np.sqrt(1 + pearson)
+    ell_radius_y = np.sqrt(1 - pearson)
+    ellipse = Ellipse((0, 0), width=ell_radius_x * 2, height=ell_radius_y * 2,
+                      facecolor=facecolor, **kwargs)
+
+    # Calculating the stdandard deviation of x from
+    # the squareroot of the variance and multiplying
+    # with the given number of standard deviations.
+    scale_x = np.sqrt(cov[0, 0]) * n_std
+    mean_x = np.mean(x)
+
+   # calculating the stdandard deviation of y ...
+    scale_y = np.sqrt(cov[1, 1]) * n_std
+    mean_y = np.mean(y)
+
+    transf = transforms.Affine2D() \
+        .rotate_deg(45) \
+        .scale(scale_x, scale_y) \
+        .translate(mean_x, mean_y)
+
+    ellipse.set_transform(transf + ax.transData)
+    return ax.add_patch(ellipse)
     
-def scatter(pca_df,x='PC1', y='PC2', title="Biplot", label_column=None, color_column=None, figsize=(15,15)):
+def scatter(pca_df,x='PC1', y='PC2', title="Biplot", label_column=None, color_column=None, conf_ellipse=None, figsize=(15,15)):
     """Creates a basic biplot based on the passed in PC numbers. 
     Essentially creates a scatter plot from two columns in a dataframe lol.
     
@@ -145,6 +199,9 @@ def scatter(pca_df,x='PC1', y='PC2', title="Biplot", label_column=None, color_co
     color_column: string
         default None. Column used for color categories. Use 'index' to color by the dataframe index
     
+    conf_ellipse: string
+        default None. Column used for confidence ellipses. For use with defined groups
+    
     figsize: tuple
         tuple of two values for the figure size. Default is (15,15)
     
@@ -155,32 +212,39 @@ def scatter(pca_df,x='PC1', y='PC2', title="Biplot", label_column=None, color_co
     
     """
     
-    plt.figure(figsize=figsize)
+    fig, ax = plt.subplots(figsize=figsize)
     
     if color_column == None:
         
-        plt.scatter(pca_df[x], pca_df[y])
+        ax.scatter(x, y,data=pca_df)
     elif color_column == 'index':
-        plt.scatter(pca_df[x], pca_df[y], c= pca_df.index, cmap='Set2')
+        ax.scatter(x, x, c= pca_df.index, cmap='Set2',data=pca_df)
     else:
-        plt.scatter(pca_df[x], pca_df[y], c = pca_df[color_column], cmap='Set2')
+        ax.scatter(x, y, c = color_column, cmap='Set2',data=pca_df)
     
-    plt.title(title)
-    plt.xlabel(x)
-    plt.ylabel(y)
+    ax.set_title(title)
+    ax.set_xlabel(x)
+    ax.set_ylabel(y)
     
     if label_column == None:
         pass
     elif label_column == 'index':
         for sample in pca_df.index:
-            plt.annotate(sample, (pca_df[x].loc[sample], pca_df[y].loc[sample]))
+            ax.annotate(sample, (pca_df[x].loc[sample], pca_df[y].loc[sample]))
         
     else:
         for sample in pca_df.index:
-            plt.annotate(str(pca_df.loc[sample,label_column]), (pca_df[x].loc[sample], pca_df[y].loc[sample]))
+            ax.annotate(str(pca_df.loc[sample,label_column]), (pca_df[x].loc[sample], pca_df[y].loc[sample]))
+    
+    if conf_ellipse == None:
+        pass
+    else:
+        for i in pca_df[conf_ellipse].unique():
+            confidence_ellipse(pca_df.loc[pca_df[conf_ellipse]==i, x], pca_df.loc[pca_df[conf_ellipse]==i, y], ax, edgecolor='red')
     
                  
     plt.show();
+
 
 
 def ox_to_ppm(df, oxides):
