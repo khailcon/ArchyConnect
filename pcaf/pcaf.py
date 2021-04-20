@@ -291,32 +291,69 @@ def quick_dendro(model, **kwargs):
     # Plot the corresponding dendrogram
     dendrogram(linkage_matrix, **kwargs)
 
+def othercrit(p,n,a):
+    return ((n*p*(n-2))/((n-1)*(n-p-1)))*f.isf((a/n), p, (n-p-1))
 
-def mahalanobis_distances(df, axis=0):
-    '''
-    Returns a pandas Series with Mahalanobis distances for each sample on the
-    axis.
 
-    Note: does not work well when # of observations < # of dimensions
-    Will either return NaN in answer
-    or (in the extreme case) fail with a Singular Matrix LinAlgError
-
-    Args:
-        df: pandas DataFrame with columns to run diagnostics on
-        axis: 0 to find outlier rows, 1 to find outlier columns
-    '''
-    df = df.transpose() if axis == 1 else df
-    means = df.mean()
-    try:
-        inv_cov = np.linalg.inv(df.cov())
-    except LinAlgError:
-        return pd.Series([np.NAN] * len(df.index), df.index,
-                         name='Mahalanobis')
-    dists = []
-    for i, sample in df.iterrows():
-        dists.append(mahalanobis(sample, means, inv_cov))
-
-    return pd.Series(dists, df.index, name='Mahalanobis')
+def md_chart(df, group_col, p_val=0.05):
+    
+    
+    #Pull out just the measurement columns
+    measurement_columns = list(df.columns)
+    measurement_columns.remove(group_col)
+    result_df = pd.DataFrame(index=df.index, columns=['assigned_group','suggested_group'])
+    groups_columns = []
+    for g in df[group_col].unique():
+        result_df['mhd_gp'+str(g)]=np.nan
+        result_df['in_gp'+str(g)]=np.nan
+        groupy = 'in_gp'+str(g)
+        groups_columns.append(groupy) #for use later when suggesting a group
+    
+    #This is a for loop to get through all the samples in the input dataframe
+    for sample in df.index:
+        
+        #This is for jacknife mahalanobis (leave one out)
+        sample_only = df.loc[df.index == sample, measurement_columns]
+        #everything that is not the sample to be distanced. Leaving in the group column to use it later
+        non_sample = df.loc[df.index != sample,:]
+        result_df.loc[result_df.index==sample, 'assigned_group'] = df.loc[df.index==sample, group_col]
+        
+        #iterating through all the groups provided
+        for g in df[group_col].unique():
+            
+            #The meat of the mahalanobis stuff
+            group = non_sample.loc[non_sample[group_col]==g, measurement_columns] #dropping the group column
+            group_mean = group.mean() #finding the group mean
+            
+            #using a psuedo-inverse covariance matrix, this is used for groups with small n.
+            group_psuedo_inverse_covariance = np.linalg.pinv(group.cov())
+            
+            #using scipy mahalanobis distance measure function
+            mhd = mahalanobis(sample_only, group_mean, group_psuedo_inverse_covariance)
+            
+            #using the Wilks method to generate critical values
+            n = len(group)+1
+            p = len(group.columns)
+            g_col = 'mhd_gp'+str(g)
+            g_crit_col = 'in_gp'+str(g)
+            
+            result_df.loc[result_df.index==sample,g_col] = mhd**2
+            result_df.loc[result_df.index==sample,g_crit_col] = round((f.sf((((n-p-1)/(p*(n-2)))*(mhd**2)),p,(n-p-1))*100),5)
+        
+        max_group = result_df.loc[result_df.index==sample, groups_columns].idxmax(axis=1)
+        
+        max_val = result_df.loc[result_df.index==sample, [str(max_group.iloc[0])]]
+        
+        if float(int(max_val.iloc[0])) >0.001:
+            val = str(max_group.iloc[0])
+            val = int(val[-1])
+            result_df.loc[result_df.index==sample, 'suggested_group'] = val
+        else:
+            
+            result_df.loc[result_df.index==sample, 'suggested_group'] = 'All group probabilities are < 0.001 '
+    
+    
+    return(result_df)
 
 def point_selection(dataframe, x_axis, y_axis, label="index", plot_width=500, plot_height=500, file_name='selection'):
     """
