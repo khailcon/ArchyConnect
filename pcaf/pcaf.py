@@ -51,7 +51,8 @@ def pca(data):
 
 
 def eleLoads(pca, icpms_df, n_components='all'):
-    """Returns a dataframe of the elemental loadings for each principle component or the number of PC's passed in the argument.
+    """
+    Returns a dataframe of the elemental loadings for each principle component or the number of PC's passed in the argument.
     Parameters
     ----------
     pca : pca.fit() object
@@ -65,7 +66,9 @@ def eleLoads(pca, icpms_df, n_components='all'):
     Returns
     -------
     pandas dataframe object
-        with princple components as columns and elements as rows"""\
+        with princple components as columns and elements as rows
+        
+    """
 
     if n_components != 'all':
         element_loads = pd.DataFrame(pca.components_[0:n_components])    
@@ -78,7 +81,22 @@ def eleLoads(pca, icpms_df, n_components='all'):
     return element_loads
 
 def element_loading_scree(df, pc_col, elements='index', figsize=(25,10)):
+    """
+    Returns a matplotlib figure with elemental loadings on a scree plot
+    ----------
+    df : pandas dataframe generated from pcaf.eleLoads()
     
+    pc_col : str
+        column name of the target principal component. Likely named 'PCX' where x is the number
+
+    elements : str
+        default is 'index'. Name of the column that contains the labels as well as the x axis for the scree plot
+
+    Returns
+    -------
+    matplotlib figure
+
+    """
     df.sort_values([pc_col])
     if elements == 'index':
         df['element'] = df.index
