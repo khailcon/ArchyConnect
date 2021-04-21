@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 from sklearn.decomposition import PCA #PCA tool
 from scipy.cluster.hierarchy import dendrogram
 from scipy.spatial.distance import mahalanobis
@@ -76,7 +77,24 @@ def eleLoads(pca, icpms_df, n_components='all'):
     element_loads = element_loads.transpose()
     return element_loads
 
+def element_loading_scree(df, pc_col, elements='index', figsize=(25,10)):
+    
+    df.sort_values([pc_col])
+    if elements == 'index':
+        df['element'] = df.index
+        elements = 'element'
+    else:
+        pass
+    
+    df = df.sort_values([pc_col])
+    fig, ax = plt.subplots(figsize=figsize)
 
+    ax.plot(df[elements],df[pc_col], 'o-',alpha=0.75,color='orange')
+    ax.axhline(y=0,alpha=0.75,color='pink')
+    for sample in df.index:
+        ax.annotate(sample, ((df[elements].loc[sample]), (df[pc_col].loc[sample])), xycoords='data',
+                xytext=(-5,10 ), textcoords='offset points')
+    plt.show()
 
 def pc_variance(pca):
     """ This function produces an arrray of principle component variance values as percentages 
