@@ -24,6 +24,7 @@ from bokeh.models import HoverTool
 from bokeh.plotting import figure
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
+from scipy.stats import f
 
 def pca(data):
     """ generates a PCA object and the pca_data for graphing. 
