@@ -297,7 +297,28 @@ def othercrit(p,n,a):
 
 
 def md_chart(df, group_col, p_val=0.05):
+    """
+     Returns a dataframe containing mahalanobis distance and probability of group membership between each sample and each group. Suggests the best group for each sample as well.
+     Note: Needs more samples than variables. Use less principal components if necesssary.
     
+    Parameters
+    ----------
+    
+    df: pandas dataframe with samples on rows and variables across rows.
+    
+    group_col: string
+        column name with assigned group. Column values should be int.
+
+    p_val: float
+        default: 0.05. The default significance value. - NOT used currently.
+        
+    Returns
+    -------
+    
+    pandas dataframe object
+
+
+    """
     
     #Pull out just the measurement columns
     measurement_columns = list(df.columns)
