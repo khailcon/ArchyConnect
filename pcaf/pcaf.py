@@ -27,6 +27,10 @@ from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 from scipy.stats import f
 
+from numpy import trace, matmul
+from numpy.linalg import multi_dot
+from scipy.linalg import sqrtm
+
 def pca(data):
     """ generates a PCA object and the pca_data for graphing. 
     Use like: pca_object, pca_data = pca(data)
@@ -109,6 +113,7 @@ def element_loading_scree(df, pc_col, elements='index', figsize=(25,10)):
 
     ax.plot(df[elements],df[pc_col], 'o-',alpha=0.75,color='orange')
     ax.axhline(y=0,alpha=0.75,color='pink')
+    ax.set_title(pc_col)
     for sample in df.index:
         ax.annotate(sample, ((df[elements].loc[sample]), (df[pc_col].loc[sample])), xycoords='data',
                 xytext=(-5,10 ), textcoords='offset points')
@@ -572,3 +577,58 @@ def point_selection(dataframe, x_axis, y_axis, label="index", plot_width=500, pl
 
     output_notebook()
     show(layout)
+    
+
+def feature_select(df, k, iters=1000):
+    """
+    Iterates through the selected number of random combinations of k features in a multivariate dataset, then compares them to the k number of principal components of the original dataset.
+    Currently produces a pandas dataframe of all combinations and their y value (Sibson 1978). Currently working on producing an M2 value as well (Krzanowski 1987).
+    
+    
+    Parameters
+    ----------
+    
+    df: array-like, pandas dataframe
+        array or dataframe of observationsxfeatures, nxp
+    k: int
+        number of freatures you need to select - at least k = p-1
+    iters: int
+        number of times to sample and test. Default is 1000
+        
+    Returns
+    -------
+    
+    Dataframe containing each of the feature combinations and their y and m2 score values
+    
+    """
+    
+    features=list(df.columns) # creates a list of the features
+    _, df_pca = pcaf.pca(df)#perform a PCA on the orignal data
+    pca_df = df_pca.iloc[:, :k]
+    z = np.round(np.array(pca_df))
+    z_t = np.round(np.transpose(np.array(pca_df)))
+    
+    nums = []
+    selected = []
+    ms = []
+    
+    
+    for i in range(iters):
+        sample = random.sample(features, k)
+        sampled_df = df.loc[:, sample]
+        _, sampled_pca=pcaf.pca(sampled_df)
+        zbar_t = np.round(np.transpose(np.array(sampled_pca)))
+        zbar = np.round(np.array(sampled_pca))
+        
+        y = 1 - (trace(np.round(sqrtm(multi_dot([z_t,zbar,zbar_t, z]))))**2 /(trace(z_t.dot(z))*trace(z_t.dot(z))))
+        m2 = (trace((z.dot(z_t) + zbar.dot(zbar_t)))) - trace((2*zbar_t.dot(z)))
+        
+        nums.append((np.round(1-y, 10).real))
+        selected.append(sample)
+        ms.append(m2)
+        
+    data = {'features': selected, 'y_value':nums, 'm2':ms}
+    output = pd.DataFrame(data=data)
+    
+        
+    return output
