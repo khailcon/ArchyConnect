@@ -668,6 +668,3 @@ def group_up(dataframe,file_list, group_key='index' ):
             df_copy.loc[group[group_key], 'group'] = (number+1)
     
     return(df_copy)
-
-
-
